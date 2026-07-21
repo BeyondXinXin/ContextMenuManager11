@@ -15,7 +15,7 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <AssemblyName>ContextMenuManager11</AssemblyName>
     <RootNamespace>ContextMenuManager11</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">

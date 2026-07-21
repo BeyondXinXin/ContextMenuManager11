@@ -38,6 +38,7 @@ internal sealed class MainForm : Form
     private readonly ClassicContextMenuService _classicService;
     private NavigationEntry _selectedNavigation = NavigationEntries[0];
     private bool _busy;
+    private bool _closing;
     private bool _loadingClassicState;
 
     private static readonly NavigationEntry[] NavigationEntries =
@@ -85,6 +86,28 @@ internal sealed class MainForm : Form
         WindowEffects.Apply(Handle);
         _mainSplit.SplitterDistance = 184;
         BeginInvoke(async () => await RefreshItemsAsync());
+    }
+
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        base.OnFormClosing(e);
+        if (e.Cancel)
+        {
+            return;
+        }
+
+        _closing = true;
+
+        // 先停止表格事件并解除数据绑定。若先 Dispose BindingSource，DataGridView
+        // 会在结束当前单元格编辑时再次格式化已经不存在的行，导致 CurrencyManager 越界。
+        _grid.CellFormatting -= Grid_CellFormatting;
+        _grid.CellPainting -= Grid_CellPainting;
+        _grid.CellClick -= Grid_CellClick;
+        _grid.CellDoubleClick -= Grid_CellDoubleClick;
+        _grid.CellMouseDown -= Grid_CellMouseDown;
+        _grid.KeyDown -= Grid_KeyDown;
+        _grid.DataSource = null;
+        _bindingSource.DataSource = null;
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e)
@@ -542,7 +565,7 @@ internal sealed class MainForm : Form
 
     private async Task RefreshItemsAsync()
     {
-        if (_busy)
+        if (_busy || _closing)
         {
             return;
         }
@@ -551,8 +574,16 @@ internal sealed class MainForm : Form
         try
         {
             IReadOnlyList<ContextMenuItem> items = await Task.Run(_scanner.Scan);
+            if (_closing)
+            {
+                return;
+            }
+
             ReplaceItems(items);
             _status.Text = $"扫描完成，共 {items.Count} 个菜单项";
+        }
+        catch (Exception) when (_closing)
+        {
         }
         catch (Exception exception)
         {
@@ -566,7 +597,7 @@ internal sealed class MainForm : Form
 
     private async Task<bool> RunOperationAsync(Action operation, string successMessage, bool refreshAfter)
     {
-        if (_busy)
+        if (_busy || _closing)
         {
             return false;
         }
@@ -578,11 +609,20 @@ internal sealed class MainForm : Form
             if (refreshAfter)
             {
                 IReadOnlyList<ContextMenuItem> items = await Task.Run(_scanner.Scan);
+                if (_closing)
+                {
+                    return false;
+                }
+
                 ReplaceItems(items);
             }
 
             _status.Text = successMessage;
             return true;
+        }
+        catch (Exception) when (_closing)
+        {
+            return false;
         }
         catch (Exception exception)
         {
@@ -630,7 +670,7 @@ internal sealed class MainForm : Form
 
     private void Grid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
     {
-        if (e.RowIndex < 0 || _grid.Rows[e.RowIndex].DataBoundItem is not ContextMenuItem item)
+        if (!TryGetGridItem(e.RowIndex, e.ColumnIndex, out ContextMenuItem item))
         {
             return;
         }
@@ -661,10 +701,8 @@ internal sealed class MainForm : Form
 
     private void Grid_CellPainting(object? sender, DataGridViewCellPaintingEventArgs e)
     {
-        if (e.RowIndex < 0
-            || e.ColumnIndex < 0
-            || _grid.Columns[e.ColumnIndex].Name != "ToggleAction"
-            || _grid.Rows[e.RowIndex].DataBoundItem is not ContextMenuItem item)
+        if (!TryGetGridItem(e.RowIndex, e.ColumnIndex, out ContextMenuItem item)
+            || _grid.Columns[e.ColumnIndex].Name != "ToggleAction")
         {
             return;
         }
@@ -720,10 +758,8 @@ internal sealed class MainForm : Form
 
     private async void Grid_CellClick(object? sender, DataGridViewCellEventArgs e)
     {
-        if (e.RowIndex < 0
-            || e.ColumnIndex < 0
-            || _grid.Columns[e.ColumnIndex].Name != "ToggleAction"
-            || _grid.Rows[e.RowIndex].DataBoundItem is not ContextMenuItem item)
+        if (!TryGetGridItem(e.RowIndex, e.ColumnIndex, out ContextMenuItem item)
+            || _grid.Columns[e.ColumnIndex].Name != "ToggleAction")
         {
             return;
         }
@@ -979,6 +1015,11 @@ internal sealed class MainForm : Form
 
     private void SetBusy(bool busy, string? message = null)
     {
+        if (_closing || IsDisposed)
+        {
+            return;
+        }
+
         _busy = busy;
         UseWaitCursor = busy;
         _grid.Enabled = !busy;
@@ -1052,6 +1093,29 @@ internal sealed class MainForm : Form
             ReadOnly = true,
             SortMode = DataGridViewColumnSortMode.NotSortable
         };
+
+    private bool TryGetGridItem(int rowIndex, int columnIndex, out ContextMenuItem item)
+    {
+        item = null!;
+        if (_closing
+            || _grid.IsDisposed
+            || rowIndex < 0
+            || columnIndex < 0
+            || rowIndex >= _grid.Rows.Count
+            || columnIndex >= _grid.Columns.Count
+            || rowIndex >= _bindingSource.Count)
+        {
+            return false;
+        }
+
+        if (_grid.Rows[rowIndex].DataBoundItem is not ContextMenuItem boundItem)
+        {
+            return false;
+        }
+
+        item = boundItem;
+        return true;
+    }
 
     private sealed record NavigationEntry(
         string Title,
