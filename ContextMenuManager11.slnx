@@ -1,5 +1,3 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/ContextMenuManager11.csproj" />
-  </Folder>
+  <Project Path="ContextMenuManager11.csproj" />
 </Solution>

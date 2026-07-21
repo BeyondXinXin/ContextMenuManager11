@@ -1,8 +1,43 @@
-bin/
-obj/
+# .NET build and publish output
+[Bb]in/
+[Oo]bj/
+artifacts/
+publish/
+
+# IDE and editor state
 .vs/
 .idea/
+.vscode/
 *.user
 *.suo
-*.tmp
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# Test and coverage output
+[Tt]est[Rr]esults/
+coverage/
+coverage.*
+*.coverage
+*.coveragexml
+
+# NuGet packages
+packages/
+*.nupkg
+*.snupkg
+
+# Local QA workspace
+.qa/
+
+# Logs, temporary files, and conversion backups
 *.log
+*.tmp
+*.plaindrop.tmp
+*.bak
+*.orig
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
