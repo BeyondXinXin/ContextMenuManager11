@@ -6,6 +6,7 @@ internal sealed class DetailDialog : Form
 {
     public DetailDialog(ContextMenuItem item)
     {
+        SuspendLayout();
         Text = "菜单项属性";
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -19,6 +20,7 @@ internal sealed class DetailDialog : Form
         ForeColor = Theme.Text;
         Font = Theme.Font();
         Controls.Add(CreateLayout(item));
+        ResumeLayout(true);
     }
 
     protected override void OnShown(EventArgs e)

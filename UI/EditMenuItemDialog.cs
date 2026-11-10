@@ -10,6 +10,7 @@ internal sealed class EditMenuItemDialog : Form
 
     public EditMenuItemDialog(ContextMenuItem item)
     {
+        SuspendLayout();
         Text = "编辑菜单项";
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -27,6 +28,7 @@ internal sealed class EditMenuItemDialog : Form
         _command.Text = item.Command;
         _icon.Text = item.Icon;
         Controls.Add(CreateLayout());
+        ResumeLayout(true);
     }
 
     public string DisplayNameValue => _displayName.Text.Trim();

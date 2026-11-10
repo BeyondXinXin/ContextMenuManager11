@@ -21,7 +21,6 @@ internal sealed class MainForm : Form
     private readonly DataGridView _grid = new();
     private readonly Label _itemCount = new();
     private readonly Label _status = new();
-    private readonly SlimProgressBar _progress = new();
     private readonly ModernCheckBox _classicMenuCheck = new();
     private readonly ModernCheckBox _enabledOnlyCheck = new();
     private readonly ModernButton _refreshButton = CreateButton("刷新", ModernButtonStyle.Secondary, 82);
@@ -60,6 +59,7 @@ internal sealed class MainForm : Form
 
     public MainForm()
     {
+        SuspendLayout();
         _classicService = new ClassicContextMenuService(_editService);
         Text = "ContextMenuManager11";
         BackColor = Theme.Window;
@@ -78,6 +78,7 @@ internal sealed class MainForm : Form
         WireEvents();
         SelectNavigation(NavigationEntries[0]);
         LoadClassicMenuState();
+        ResumeLayout(true);
     }
 
     protected override void OnShown(EventArgs e)
@@ -162,9 +163,10 @@ internal sealed class MainForm : Form
             Margin = new Padding(0),
             Padding = new Padding(0)
         };
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 1));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));
         root.Controls.Add(new Panel { Dock = DockStyle.Fill, BackColor = Theme.Border }, 0, 0);
         root.Controls.Add(CreateContent(), 0, 1);
         root.Controls.Add(CreateStatusBar(), 0, 2);
@@ -213,7 +215,9 @@ internal sealed class MainForm : Form
         foreach (NavigationEntry entry in NavigationEntries)
         {
             ModernButton button = CreateButton(entry.Title, ModernButtonStyle.Ghost, 100);
-            button.Width = TextRenderer.MeasureText(entry.Title, button.Font).Width + 28;
+            button.AutoSize = true;
+            button.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            button.MinimumSize = new Size(0, 36);
             button.Height = 36;
             button.Margin = new Padding(0, 0, 6, 4);
             button.Click += (_, _) => SelectNavigation(entry);
@@ -268,62 +272,53 @@ internal sealed class MainForm : Form
 
     private Control CreateStatusBar()
     {
-        Panel host = new()
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Theme.Window
-        };
         TableLayoutPanel bar = new()
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 6,
-            RowCount = 1,
-            BackColor = Theme.Window,
-            Padding = new Padding(12, 6, 8, 6)
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 2,
+            Margin = new Padding(0),
+            Padding = new Padding(12, 6, 12, 8),
+            BackColor = Theme.Subtle
         };
         bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 32));
-        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 102));
-        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 108));
-        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 78));
-        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118));
-        bar.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-        _status.Text = "准备就绪";
-        _status.Dock = DockStyle.Fill;
-        _status.AutoEllipsis = true;
-        _status.TextAlign = ContentAlignment.MiddleLeft;
-        _status.ForeColor = Theme.Muted;
-        _status.Font = Theme.Font();
-        _progress.Dock = DockStyle.Fill;
-        _progress.Margin = new Padding(8, 8, 8, 8);
-        _progress.Visible = false;
-
-        _itemCount.Text = "0 / 0 项";
-        _itemCount.Dock = DockStyle.Fill;
-        _itemCount.TextAlign = ContentAlignment.MiddleRight;
-        _itemCount.ForeColor = Theme.Muted;
-        _itemCount.Font = Theme.Font();
-
+        bar.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        bar.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        FlowLayoutPanel actions = new()
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = true,
+            Margin = new Padding(0)
+        };
         _enabledOnlyCheck.Text = "只看启用";
-        _enabledOnlyCheck.Dock = DockStyle.Fill;
-        _enabledOnlyCheck.Margin = new Padding(8, 0, 0, 0);
-        _enabledOnlyCheck.Font = Theme.Font();
-
-        _refreshButton.Dock = DockStyle.Fill;
-        _refreshButton.Margin = new Padding(4, 0, 0, 0);
-        _restartExplorerButton.Dock = DockStyle.Fill;
-        _restartExplorerButton.Margin = new Padding(4, 0, 0, 0);
-
-        bar.Controls.Add(_status, 0, 0);
-        bar.Controls.Add(_progress, 1, 0);
-        bar.Controls.Add(_enabledOnlyCheck, 2, 0);
-        bar.Controls.Add(_itemCount, 3, 0);
-        bar.Controls.Add(_refreshButton, 4, 0);
-        bar.Controls.Add(_restartExplorerButton, 5, 0);
-        host.Controls.Add(bar);
-        host.Controls.Add(new Panel { Dock = DockStyle.Top, Height = 1, BackColor = Theme.Border });
-        return host;
+        _enabledOnlyCheck.AutoSize = true;
+        _enabledOnlyCheck.Anchor = AnchorStyles.Left;
+        _enabledOnlyCheck.Margin = new Padding(0, 6, 16, 6);
+        _itemCount.AutoSize = true;
+        _itemCount.Anchor = AnchorStyles.Left;
+        _itemCount.Margin = new Padding(0, 6, 16, 6);
+        _itemCount.ForeColor = Theme.Muted;
+        foreach (ModernButton button in new[] { _refreshButton, _restartExplorerButton })
+        {
+            button.AutoSize = true;
+            button.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            button.MinimumSize = new Size(78, 32);
+            button.Margin = new Padding(0, 0, 8, 4);
+        }
+        actions.Controls.AddRange([_enabledOnlyCheck, _itemCount, _refreshButton, _restartExplorerButton]);
+        _status.Text = "准备就绪";
+        _status.AutoSize = false;
+        _status.AutoEllipsis = true;
+        _status.Dock = DockStyle.Fill;
+        _status.ForeColor = Theme.Muted;
+        _status.Margin = new Padding(0, 4, 0, 0);
+        bar.Controls.Add(actions, 0, 0);
+        bar.Controls.Add(_status, 0, 1);
+        return bar;
     }
 
     private void ConfigureGrid()
@@ -939,7 +934,6 @@ internal sealed class MainForm : Form
         _restartExplorerButton.Enabled = !busy;
         _enabledOnlyCheck.Enabled = !busy;
         _classicMenuCheck.Enabled = !busy;
-        _progress.Visible = busy;
         if (!string.IsNullOrWhiteSpace(message))
         {
             _status.Text = message;

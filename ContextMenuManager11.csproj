@@ -16,7 +16,7 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <AssemblyName>ContextMenuManager11</AssemblyName>
     <RootNamespace>ContextMenuManager11</RootNamespace>
-    <Version>0.1.2</Version>
+    <Version>0.1.3</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -25,6 +25,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="tests\**\*.cs" />
     <EmbeddedResource Include="Assets\ContextMenuManager11.ico" LogicalName="ContextMenuManager11.Assets.ContextMenuManager11.ico" />
   </ItemGroup>
 
