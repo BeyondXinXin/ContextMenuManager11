@@ -22,7 +22,7 @@ internal static class Theme
     public static readonly Color Warning = Color.FromArgb(157, 93, 0);
     public static readonly Color Danger = Color.FromArgb(196, 43, 28);
 
-    public static Font Font(float size = 9F, FontStyle style = FontStyle.Regular) =>
+    public static Font Font(float size = 10F, FontStyle style = FontStyle.Regular) =>
         new("Microsoft YaHei UI", size, style, GraphicsUnit.Point);
 
     public static GraphicsPath RoundedRectangle(Rectangle bounds, int radius)

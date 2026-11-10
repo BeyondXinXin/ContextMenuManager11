@@ -7,6 +7,8 @@ internal sealed class DetailDialog : Form
     public DetailDialog(ContextMenuItem item)
     {
         Text = "菜单项属性";
+        AutoScaleDimensions = new SizeF(96F, 96F);
+        AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.Sizable;
         MinimizeBox = false;

@@ -11,6 +11,8 @@ internal sealed class EditMenuItemDialog : Form
     public EditMenuItemDialog(ContextMenuItem item)
     {
         Text = "编辑菜单项";
+        AutoScaleDimensions = new SizeF(96F, 96F);
+        AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;

@@ -83,7 +83,7 @@ internal sealed class ModernButton : Button
         FlatStyle = FlatStyle.Flat;
         FlatAppearance.BorderSize = 0;
         Cursor = Cursors.Hand;
-        Font = Theme.Font(9F, FontStyle.Bold);
+        Font = Theme.Font();
         Padding = new Padding(12, 0, 12, 1);
         UseVisualStyleBackColor = false;
         ApplyStyle();
@@ -136,7 +136,8 @@ internal sealed class ModernButton : Button
         using SolidBrush fill = new(fillColor);
         using Pen border = new(borderColor);
         e.Graphics.FillRectangle(fill, bounds);
-        e.Graphics.DrawRectangle(border, bounds);
+        if (ButtonStyle != ModernButtonStyle.Ghost || _hovered)
+            e.Graphics.DrawRectangle(border, bounds);
 
         bool leftAligned = TextAlign is ContentAlignment.TopLeft
             or ContentAlignment.MiddleLeft
@@ -146,7 +147,7 @@ internal sealed class ModernButton : Button
             : bounds;
         if (Image is not null)
         {
-            const int iconSize = 20;
+            int iconSize = LogicalToDeviceUnits(20);
             int imageX = leftAligned
                 ? bounds.Left + Padding.Left
                 : bounds.Left + Math.Max(6, (bounds.Width - iconSize - TextRenderer.MeasureText(Text, Font).Width - 8) / 2);
@@ -157,9 +158,9 @@ internal sealed class ModernButton : Button
                 iconSize);
             e.Graphics.DrawImage(Image, imageBounds);
             textBounds = new Rectangle(
-                imageBounds.Right + 9,
+                imageBounds.Right + LogicalToDeviceUnits(9),
                 bounds.Top,
-                Math.Max(0, bounds.Right - imageBounds.Right - 13),
+                Math.Max(0, bounds.Right - imageBounds.Right - LogicalToDeviceUnits(13)),
                 bounds.Height);
         }
 
@@ -219,7 +220,7 @@ internal sealed class ModernButton : Button
         {
             ModernButtonStyle.Primary => (Theme.AccentLight, Theme.Accent, Theme.Accent, 1),
             ModernButtonStyle.Danger => (Theme.Button, Theme.Danger, Theme.Danger, 1),
-            ModernButtonStyle.Ghost => (Theme.Button, Theme.Text, Theme.Border, 1),
+            ModernButtonStyle.Ghost => (Theme.Subtle, Theme.Text, Theme.Subtle, 0),
             _ => (Theme.Button, Theme.Text, Theme.Border, 1)
         };
 
@@ -250,44 +251,14 @@ internal sealed class SlimProgressBar : Control
     }
 }
 
+// Keep native checkbox rendering for DPI, keyboard focus and accessibility states.
 internal sealed class ModernCheckBox : CheckBox
 {
     public ModernCheckBox()
     {
-        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
-        BackColor = Color.Transparent;
+        UseVisualStyleBackColor = true;
         Cursor = Cursors.Hand;
-    }
-
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        e.Graphics.Clear(Parent?.BackColor ?? Theme.Window);
-        Color outline = Enabled ? Theme.Muted : Theme.Border;
-        Color text = Enabled ? Theme.Text : Theme.Muted;
-        Rectangle box = new(1, Math.Max(1, (Height - 14) / 2), 13, 13);
-        using Pen border = new(Checked && Enabled ? Theme.Accent : outline, 1.3F);
-        using SolidBrush fill = new(Checked && Enabled ? Theme.Accent : Theme.Input);
-        e.Graphics.FillRectangle(fill, box);
-        e.Graphics.DrawRectangle(border, box);
-        if (Checked)
-        {
-            using Pen check = new(Color.White, 1.7F) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-            e.Graphics.DrawLines(check,
-            [
-                new Point(box.X + 3, box.Y + 7),
-                new Point(box.X + 6, box.Y + 10),
-                new Point(box.X + 11, box.Y + 4)
-            ]);
-        }
-
-        TextRenderer.DrawText(
-            e.Graphics,
-            Text,
-            Font,
-            new Rectangle(22, 0, Math.Max(0, Width - 22), Height),
-            text,
-            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+        Font = Theme.Font();
     }
 }
 

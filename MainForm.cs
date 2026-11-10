@@ -16,7 +16,6 @@ internal sealed class MainForm : Form
     private readonly BindingSource _bindingSource = new();
     private readonly List<ContextMenuItem> _allItems = [];
     private readonly List<(ModernButton Button, NavigationEntry Entry)> _navigationButtons = [];
-    private readonly SplitContainer _mainSplit = new();
     private readonly Panel _listPage = new();
     private readonly Panel _settingsPage = new();
     private readonly DataGridView _grid = new();
@@ -66,10 +65,11 @@ internal sealed class MainForm : Form
         BackColor = Theme.Window;
         ForeColor = Theme.Text;
         Font = Theme.Font();
-        StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(800, 600);
-        ClientSize = new Size(960, 620);
+        AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
+        StartPosition = FormStartPosition.CenterScreen;
+        MinimumSize = new Size(760, 480);
+        ClientSize = new Size(1100, 700);
         KeyPreview = true;
         LoadApplicationIcon();
 
@@ -84,7 +84,7 @@ internal sealed class MainForm : Form
     {
         base.OnShown(e);
         WindowEffects.Apply(Handle);
-        _mainSplit.SplitterDistance = 184;
+        ApplyGridMetrics();
         BeginInvoke(async () => await RefreshItemsAsync());
     }
 
@@ -130,28 +130,25 @@ internal sealed class MainForm : Form
         Icon = (Icon)embeddedIcon.Clone();
     }
 
-    protected override void OnLoad(EventArgs e)
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
     {
-        base.OnLoad(e);
-
-        // SplitContainer 在 CreateContent 中尚未完成 Dock 布局时只有默认宽度，
-        // 此时直接设置两个最小尺寸会使约束无解并抛出异常。
-        ApplyMainSplitMinimumSizes();
+        base.OnDpiChanged(e);
+        // Run after WinForms has rescaled the controls to avoid scaling twice.
+        BeginInvoke(ApplyGridMetrics);
     }
 
-    private void ApplyMainSplitMinimumSizes()
+    private void ApplyGridMetrics()
     {
-        if (_mainSplit.IsDisposed || _mainSplit.Width <= 0)
-        {
-            return;
-        }
-
-        int availableWidth = _mainSplit.Width - _mainSplit.SplitterWidth;
-        int panel1MinSize = Math.Min(176, Math.Max(0, availableWidth));
-        int panel2MinSize = Math.Min(560, Math.Max(0, availableWidth - panel1MinSize));
-
-        _mainSplit.Panel1MinSize = panel1MinSize;
-        _mainSplit.Panel2MinSize = panel2MinSize;
+        if (_grid.IsDisposed || _grid.Columns.Count == 0) return;
+        int rowHeight = Math.Max(LogicalToDeviceUnits(38), _grid.Font.Height + LogicalToDeviceUnits(14));
+        _grid.RowTemplate.Height = rowHeight;
+        foreach (DataGridViewRow row in _grid.Rows) row.Height = rowHeight;
+        _grid.ColumnHeadersHeight = Math.Max(LogicalToDeviceUnits(36), _grid.Font.Height + LogicalToDeviceUnits(12));
+        _grid.Columns[0].Width = LogicalToDeviceUnits(44);
+        _grid.Columns[2].Width = LogicalToDeviceUnits(80);
+        _grid.Columns[3].Width = LogicalToDeviceUnits(88);
+        _grid.DefaultCellStyle.Padding = new Padding(LogicalToDeviceUnits(8), 0, LogicalToDeviceUnits(8), 0);
+        _grid.Invalidate();
     }
 
     private void BuildLayout()
@@ -176,28 +173,28 @@ internal sealed class MainForm : Form
 
     private Control CreateContent()
     {
-        _mainSplit.Dock = DockStyle.Fill;
-        _mainSplit.Orientation = Orientation.Vertical;
-        _mainSplit.SplitterWidth = 1;
-        _mainSplit.FixedPanel = FixedPanel.Panel1;
-        _mainSplit.IsSplitterFixed = true;
-        _mainSplit.Panel1.Controls.Add(CreateNavigation());
+        TableLayoutPanel content = new()
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            Margin = new Padding(0)
+        };
+        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        content.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        content.Controls.Add(CreateNavigationButtons(), 0, 0);
 
+        Panel pages = new() { Dock = DockStyle.Fill, Margin = new Padding(0) };
         _listPage.Dock = DockStyle.Fill;
-        _listPage.BackColor = Theme.Card;
         _listPage.Controls.Add(CreateListPage());
         _settingsPage.Dock = DockStyle.Fill;
-        _settingsPage.BackColor = Theme.Card;
         _settingsPage.Controls.Add(CreateSettingsPage());
         _settingsPage.Visible = false;
-        _mainSplit.Panel2.Controls.Add(_settingsPage);
-        _mainSplit.Panel2.Controls.Add(_listPage);
-        return _mainSplit;
-    }
-
-    private Control CreateNavigation()
-    {
-        return CreateNavigationButtons();
+        pages.Controls.Add(_settingsPage);
+        pages.Controls.Add(_listPage);
+        content.Controls.Add(pages, 0, 1);
+        return content;
     }
 
     private Control CreateNavigationButtons()
@@ -205,47 +202,24 @@ internal sealed class MainForm : Form
         FlowLayoutPanel menu = new()
         {
             Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.TopDown,
-            WrapContents = false,
-            BackColor = Theme.Window,
-            Padding = new Padding(10, 12, 10, 12),
-            AutoScroll = false
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            BackColor = Theme.Subtle,
+            Padding = new Padding(12, 10, 12, 6),
+            Margin = new Padding(0)
         };
-
         foreach (NavigationEntry entry in NavigationEntries)
         {
-            if (entry.Title == "新建菜单" || entry.IsSettings)
-            {
-                menu.Controls.Add(new Panel
-                {
-                    Width = 1,
-                    Height = 6,
-                    BackColor = Theme.Window,
-                    Margin = new Padding(0)
-                });
-            }
-
-            ModernButton button = CreateButton(entry.Title, ModernButtonStyle.Secondary, 162);
-            button.Height = 30;
-            button.Margin = new Padding(0, 0, 0, 2);
-            button.Image = entry.IsSettings
-                ? _iconService.GetResourceIcon("shell32.dll", 316)
-                : _iconService.GetScopeIcon(entry.Scope);
-            button.ImageAlign = ContentAlignment.MiddleLeft;
-            button.TextAlign = ContentAlignment.MiddleLeft;
+            ModernButton button = CreateButton(entry.Title, ModernButtonStyle.Ghost, 100);
+            button.Width = TextRenderer.MeasureText(entry.Title, button.Font).Width + 28;
+            button.Height = 36;
+            button.Margin = new Padding(0, 0, 6, 4);
             button.Click += (_, _) => SelectNavigation(entry);
             _navigationButtons.Add((button, entry));
             menu.Controls.Add(button);
         }
-
-        menu.Resize += (_, _) =>
-        {
-            int width = Math.Max(120, menu.ClientSize.Width - menu.Padding.Horizontal - 1);
-            foreach ((ModernButton button, _) in _navigationButtons)
-            {
-                button.Width = width;
-            }
-        };
         return menu;
     }
 
@@ -269,92 +243,26 @@ internal sealed class MainForm : Form
 
     private Control CreateSettingsPage()
     {
-        TableLayoutPanel page = new()
+        FlowLayoutPanel page = new()
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 3,
-            Padding = new Padding(20, 18, 20, 18),
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoScroll = true,
+            Padding = new Padding(24),
             BackColor = Theme.Card
         };
-        page.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 78));
-        page.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22));
-        page.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
-        page.RowStyles.Add(new RowStyle(SizeType.Absolute, 92));
-        page.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-        TableLayoutPanel header = new()
+        _classicMenuCheck.Text = "默认显示经典右键菜单";
+        _classicMenuCheck.Size = new Size(320, 40);
+        _classicMenuCheck.Font = Theme.Font();
+        page.Controls.Add(_classicMenuCheck);
+        page.Controls.Add(new Label
         {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 2,
-            BackColor = Theme.Card,
-            Margin = new Padding(0)
-        };
-        header.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        header.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        header.Controls.Add(new Label
-        {
-            Text = "Windows 11 右键菜单",
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleLeft,
-            ForeColor = Theme.Text,
-            Font = Theme.Font(11.5F, FontStyle.Bold)
-        }, 0, 0);
-        header.Controls.Add(new Label
-        {
-            Text = "选择默认显示简化菜单还是经典完整菜单。",
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.TopLeft,
+            Text = "更改后需重启 Explorer 生效。",
+            AutoSize = true,
             ForeColor = Theme.Muted,
-            Font = Theme.Font(8.7F)
-        }, 0, 1);
-
-        _classicMenuCheck.Text = "启用";
-        _classicMenuCheck.Dock = DockStyle.Fill;
-        _classicMenuCheck.Font = Theme.Font(9F, FontStyle.Bold);
-
-        Panel card = new()
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Color.FromArgb(218, 218, 218),
-            Padding = new Padding(1),
-            Margin = new Padding(0, 8, 0, 0)
-        };
-        TableLayoutPanel content = new()
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 2,
-            BackColor = Theme.Window,
-            Padding = new Padding(16, 10, 14, 10)
-        };
-        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        content.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 84));
-        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
-        content.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        content.Controls.Add(new Label
-        {
-            Text = "默认显示经典右键菜单",
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleLeft,
-            ForeColor = Theme.Text,
-            Font = Theme.Font(9F, FontStyle.Bold)
-        }, 0, 0);
-        content.Controls.Add(new Label
-        {
-            Text = "跳过 Windows 11 简化菜单，直接打开 Windows 10 风格的完整菜单。",
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.TopLeft,
-            ForeColor = Theme.Muted,
-            Font = Theme.Font(8.6F)
-        }, 0, 1);
-        content.Controls.Add(_classicMenuCheck, 1, 0);
-        content.SetRowSpan(_classicMenuCheck, 2);
-        card.Controls.Add(content);
-
-        page.Controls.Add(header, 0, 0);
-        page.Controls.Add(card, 0, 1);
+            Margin = new Padding(0, 8, 0, 16)
+        });
         return page;
     }
 
@@ -374,7 +282,7 @@ internal sealed class MainForm : Form
             Padding = new Padding(12, 6, 8, 6)
         };
         bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 32));
         bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 102));
         bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 108));
         bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 78));
@@ -383,9 +291,10 @@ internal sealed class MainForm : Form
 
         _status.Text = "准备就绪";
         _status.Dock = DockStyle.Fill;
+        _status.AutoEllipsis = true;
         _status.TextAlign = ContentAlignment.MiddleLeft;
         _status.ForeColor = Theme.Muted;
-        _status.Font = Theme.Font(8.7F);
+        _status.Font = Theme.Font();
         _progress.Dock = DockStyle.Fill;
         _progress.Margin = new Padding(8, 8, 8, 8);
         _progress.Visible = false;
@@ -394,12 +303,12 @@ internal sealed class MainForm : Form
         _itemCount.Dock = DockStyle.Fill;
         _itemCount.TextAlign = ContentAlignment.MiddleRight;
         _itemCount.ForeColor = Theme.Muted;
-        _itemCount.Font = Theme.Font(8.7F);
+        _itemCount.Font = Theme.Font();
 
         _enabledOnlyCheck.Text = "只看启用";
         _enabledOnlyCheck.Dock = DockStyle.Fill;
         _enabledOnlyCheck.Margin = new Padding(8, 0, 0, 0);
-        _enabledOnlyCheck.Font = Theme.Font(8.7F);
+        _enabledOnlyCheck.Font = Theme.Font();
 
         _refreshButton.Dock = DockStyle.Fill;
         _refreshButton.Margin = new Padding(4, 0, 0, 0);
@@ -443,7 +352,7 @@ internal sealed class MainForm : Form
         {
             BackColor = Theme.Subtle,
             ForeColor = Theme.Text,
-            Font = Theme.Font(8.8F, FontStyle.Bold),
+            Font = Theme.Font(10F, FontStyle.Bold),
             SelectionBackColor = Theme.Subtle,
             Alignment = DataGridViewContentAlignment.MiddleLeft,
             Padding = new Padding(6, 0, 6, 0)
@@ -454,7 +363,7 @@ internal sealed class MainForm : Form
             ForeColor = Theme.Text,
             SelectionBackColor = Theme.AccentLight,
             SelectionForeColor = Theme.Text,
-            Font = Theme.Font(8.8F),
+            Font = Theme.Font(),
             Padding = new Padding(6, 0, 6, 0)
         };
 
@@ -547,6 +456,8 @@ internal sealed class MainForm : Form
         _selectedNavigation = entry;
         _listPage.Visible = !entry.IsSettings;
         _settingsPage.Visible = entry.IsSettings;
+        _enabledOnlyCheck.Visible = !entry.IsSettings;
+        _itemCount.Visible = !entry.IsSettings;
         if (entry.IsSettings)
         {
             _settingsPage.BringToFront();
@@ -559,7 +470,7 @@ internal sealed class MainForm : Form
 
         foreach ((ModernButton button, NavigationEntry navigation) in _navigationButtons)
         {
-            button.ButtonStyle = navigation == entry ? ModernButtonStyle.Primary : ModernButtonStyle.Secondary;
+            button.ButtonStyle = navigation == entry ? ModernButtonStyle.Primary : ModernButtonStyle.Ghost;
         }
     }
 
@@ -719,8 +630,8 @@ internal sealed class MainForm : Form
 
         if (CanToggle(item))
         {
-            const int switchWidth = 44;
-            const int switchHeight = 24;
+            int switchWidth = LogicalToDeviceUnits(40);
+            int switchHeight = LogicalToDeviceUnits(22);
             Rectangle switchBounds = new(
                 e.CellBounds.Left + (e.CellBounds.Width - switchWidth) / 2,
                 e.CellBounds.Top + (e.CellBounds.Height - switchHeight) / 2,
@@ -734,20 +645,21 @@ internal sealed class MainForm : Form
                 graphics.FillPath(track, path);
             }
 
-            int knobSize = switchHeight - 6;
+            int inset = LogicalToDeviceUnits(3);
+            int knobSize = switchHeight - 2 * inset;
             int knobX = item.IsEnabled
-                ? switchBounds.Right - knobSize - 3
-                : switchBounds.Left + 3;
+                ? switchBounds.Right - knobSize - inset
+                : switchBounds.Left + inset;
             graphics.FillEllipse(
                 Brushes.White,
-                new Rectangle(knobX, switchBounds.Top + 3, knobSize, knobSize));
+                new Rectangle(knobX, switchBounds.Top + inset, knobSize, knobSize));
         }
         else
         {
             TextRenderer.DrawText(
                 graphics,
                 item.IsReadOnly ? item.ReadOnlyActionText : "已注册",
-                Theme.Font(8.2F),
+                _grid.Font,
                 e.CellBounds,
                 Theme.DisabledText,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
